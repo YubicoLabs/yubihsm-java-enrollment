@@ -16,6 +16,8 @@ The following steps are performed by the scripts:
 3. Sign the CSR into an X.509 certificate (using OpenSSL CA as an example).
 4. Import the signed X.509 certificate into the YubiHSM2.
 
+The scripts are not officially supported and is provided as-is.
+
 Prerequisites
 =============
 
