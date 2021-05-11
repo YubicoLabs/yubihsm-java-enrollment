@@ -16,7 +16,7 @@ The following steps are performed by the scripts:
 3. Sign the CSR into an X.509 certificate (using OpenSSL CA as an example).
 4. Import the signed X.509 certificate into the YubiHSM2.
 
-The scripts are not officially supported and is provided as-is.
+The scripts are not officially supported and is provided as-is. The scripts are intended as references, and YubiHSM2 administrators should ensure to read Yubico's [documentation on managing YubiHSMs](https://developers.yubico.com/YubiHSM2/) before making any deployments in production.
 
 Prerequisites
 =============
@@ -122,7 +122,9 @@ Windows PowerShell script for generating keys and certificates
 
 The PowerShell script ``YubiHSM_Cert_Enroll.ps1`` in the Scripts folder can be executed on Windows to generate an RSA key-pair and enroll for an X.509 certificate to a YubiHSM2.
 
-YubiHSM-Shell is used in command-line mode. OpenSSL is used as a basic CA for test purposes. For real deployments, however, the OpenSSL CA step should be replaced with a proper CA that signs the CSR into an X.509 certificate.
+YubiHSM-Shell is used in command-line mode. 
+
+OpenSSL is used as a basic CA for test and demo purposes only. For real deployments, however, the OpenSSL CA should be replaced with a proper CA that signs the CSR into an X.509 certificate.
 
 Parameters
 ----------
@@ -154,7 +156,9 @@ Linux Bash script for generating keys and certificates
 
 The Bash script ``YubiHSM_Cert_Enroll.sh`` in the Scripts folder can be executed on Linux to generate an RSA key-pair and enroll for an X.509 certificate to a YubiHSM2.
 
-YubiHSM-Shell is used in command-line mode. OpenSSL is used as a basic CA for test purposes. For real deployments, however, the OpenSSL CA step should be replaced with a proper CA that signs the CSR into an X.509 certificate.
+YubiHSM-Shell is used in command-line mode. 
+
+OpenSSL is used as a basic CA for test and demo purposes only. For real deployments, however, the OpenSSL CA should be replaced with a proper CA that signs the CSR into an X.509 certificate.
 
 Parameters
 ----------
