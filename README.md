@@ -137,11 +137,12 @@ The PowerShell script has the following parameters:
 * ``WorkDirectory`` - Working directory where the script is executed [Default: $PSScriptRoot]
 * ``Domain`` - Domain in the YubiHSM2 [Default: 1]
 * ``AuthKeyID`` - KeyId of the YubiHSM2 authentication key [Default: 0x0001]
-* ``AuthPW`` - Password to the YubiHSM2 authentication key [Default: password]
-* ``CAcertificate`` - CA certificate used by OpenSSL (for test purposes) [Default: rootCA-Cert.pem]
-* ``CAPrivateKey`` - CA private key used by OpenSSL (for test purposes) [Default: rootCA-Key.pem]
+* ``AuthPW`` - Password to the YubiHSM2 authentication key [Default: ]
+* ``CAcertificate`` - CA certificate used by OpenSSL (for test purposes) [Default: TestCACert.pem]
+* ``CAPrivateKey`` - CA private key used by OpenSSL (for test purposes) [Default: TestCAKey.pem]
 * ``CAPrivateKeyPW`` - Password of the OpenSSL keystore (for test purposes) [Default: ]
 * ``PKCS11Config`` - Java JCE PKCS11 configuration file [Default: ./sun_yubihsm2_pkcs11.conf]
+* ``LogFile`` - Log file path [Default: ``WorkDirectory``/YubiHSM_PKCS11_Enroll.log]
 * ``Dname`` - X.500 Distinguished Name to be used as subject fields [Default: ]
 
 All parameters have default settings in the PowerShell script. The parameters can either be modified in the PowerShell script, or be used as input variables when executing the script.
@@ -170,12 +171,13 @@ The Bash script has the following parameters:
 * ``-n, --keyname`` - Label of the key/certificate, same as Java Alias [Default: MyKey1]
 * ``-d, --domain`` - Domain in the YubiHSM2 [Default: 1]
 * ``-i, --authkeyid`` - KeyId of the YubiHSM2 authentication key [Default: 0x0001]
-* ``-p, --authpassword`` - Password to the YubiHSM2 authentication key [Default: password]
-* ``-c, --cacertificate`` - CA certificate used by OpenSSL (for test purposes) [Default: ./rootCA-Cert.pem]
-* ``-s, --caprivatekey`` - CA private key used by OpenSSL (for test purposes) [Default: ./rootCA-Key.pem]
+* ``-p, --authpassword`` - Password to the YubiHSM2 authentication key [Default: ]
+* ``-c, --cacertificate`` - CA certificate used by OpenSSL (for test purposes) [Default: ./TestCACert.pem]
+* ``-s, --caprivatekey`` - CA private key used by OpenSSL (for test purposes) [Default: ./TestCAKey.pem]
 * ``-r, --caprivatekeypw`` - Password of the OpenSSL keystore (for test purposes) [Default: ]
 * ``-f, --pkcs11configfile`` - Java JCE PKCS11 configuration file [Default: ./sun_yubihsm2_pkcs11.conf]
 * ``-o, --dname`` - X.500 Distinguished Name to be used as subject fields [Default: ]
+* ``-t, --logfile`` - Log file path [Default: ./YubiHSM_PKCS11_Enroll.log
 * ``-q, --quiet`` - Suppress output
 
 All parameters have default settings in the Bash script. The parameters can either be modified in the Bash  script, or be used as input variables when executing the script.
@@ -183,7 +185,7 @@ All parameters have default settings in the Bash script. The parameters can eith
 Example of how to execute the Bash script:
 ------------------------------------------
 
-``$ ./YubiHSM_PKCS11_Setup.sh -k 0x0002 -n MyKey -d 1 -a rsa2048 -i 0x0001 -p password -c ./rootCA-Cert.pem -s ./rootCA-Key.pem -f ./sun_yubihsm2_pkcs11.conf``
+``$ ./YubiHSM_PKCS11_Setup.sh -k 0x0002 -n MyKey -d 1 -a rsa2048 -i 0x0001 -p password -c ./TestCACert.pem -s ./TestCAKey.pem -f ./sun_yubihsm2_pkcs11.conf``
 
 List the objects on YubiHSM2
 ============================
