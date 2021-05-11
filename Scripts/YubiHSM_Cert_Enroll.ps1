@@ -5,9 +5,9 @@ param (
     [string]$WorkDirectory = (Get-Item .).FullName,
     [string]$Domain = '1', 
     [String]$AuthKeyID = '0x0001',
-    [String]$AuthPW = "password",
-    [string]$CAcertificate = 'rootCACert.pem',
-    [string]$CAPrivateKey = 'rootCAKey.pem',
+    [String]$AuthPW = "",
+    [string]$CAcertificate = 'TestCACert.pem',
+    [string]$CAPrivateKey = 'TestCAKey.pem',
     [String]$CAPrivateKeyPW = '',
     [string]$PKCS11Config = 'sun_yubihsm2_pkcs11.conf',
     [string]$Dname = '', # format 'CN=cName, OU=orgUnit, O=org, L=city, S=state, C=countryCode' 
@@ -15,19 +15,10 @@ param (
     [Switch]$Quiet
 )
 
-# Add yubihsm-shell to path
-#$env:Path += ';C:\Program Files\Yubico\YubiHSM Shell\bin'
-# Add openssl to path
-#$env:Path += ';C:\Program Files\OpenSSL-Win64\bin'
-# Add Java to path
-#$env:Path += ';c:\Program Files\Java\jdk-15.0.2\bin'
-
 $StorePW = $AuthKeyID.Replace("0x","") + $AuthPW
 $PEMext = '.pem'
 $DERext = '.der'
 $Template_cert = Join-Path -Path $WorkDirectory -ChildPath 'template_cert'
-$Selfsigned_cert =  Join-Path -Path $WorkDirectory -ChildPath 'selfsigned_cert'
-$SignedCert = Join-Path -Path $WorkDirectory -ChildPath 'Signed_cert'
 $CSR = Join-Path -Path $WorkDirectory -ChildPath 'YHSM2-Sig1.csr'
 $PKCS11ConfFile = Join-Path -Path $WorkDirectory -ChildPath $PKCS11Config
 $CACert = Join-Path -Path $WorkDirectory -ChildPath $CAcertificate
@@ -110,11 +101,7 @@ function SignAttestationCertificate {
 function Cleanup {
     Remove-Item -Path "$Template_cert$PEMext" 2>&1 >> $null
     Remove-Item -Path "$Template_cert$DERext" 2>&1 >> $null
-    Remove-Item -Path "$Selfsigned_cert$PEMext" 2>&1 >> $null
-    Remove-Item -Path "$Selfsigned_cert$DERext" 2>&1 >> $null
     Remove-Item -Path "$CSR" 2>&1 >> $null
-    Remove-Item -Path "$SignedCert$PEMext" 2>&1 >> $null
-    Remove-Item -Path "$SignedCert$DERext" 2>&1 >> $null
 }
 
 function GenerateKeyPair {
@@ -189,22 +176,6 @@ ConvertToDER -Infile "$Template_cert$PEMext" -Outfile "$Template_cert$DERext"
 PrintMessages -Messages "Import template certificate" $Quiet
 PutOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Key_Name "$KeyName" -Domains "$Domain" -Infile "$Template_cert$DERext"
 
-# Generate a self-signed attestation certificate
-Write-Output "Generate a self-signed attestation certificate"
-SignAttestationCertificate -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Outfile "$Selfsigned_cert$PEMext"
-
-# Convert to DER format
-PrintMessages -Messages "Convert self-signed certificate to DER format" -Silent $Quiet
-ConvertToDER -Infile "$Selfsigned_cert$PEMext" -Outfile "$Selfsigned_cert$DERext"
-
-# Delete template certificate on the YubiHSM
-PrintMessages -Messages  "Delete template certificate on the YubiHSM" -Silent $Quiet
-DeleteOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID"
-
-# Import self-signed certificate
-PrintMessages -Messages "Import self-signed certificate" $Quiet
-PutOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Key_Name "$KeyName" -Domains "$Domain" -Infile "$Selfsigned_cert$DERext"
-
 # Create and export the CSR
 PrintMessages -Messages  "Create and export a CSR" -Silent $Quiet
 CreateAndExportCSR -KeyAlias "$KeyName" -CSRFile "$CSR" -PKCS11ConfigFile "$PKCS11ConfFile" -StorePassword "$StorePW" -D_name "$Dname"
@@ -214,8 +185,8 @@ CreateAndExportCSR -KeyAlias "$KeyName" -CSRFile "$CSR" -PKCS11ConfigFile "$PKCS
 PrintMessages -Messages  "Sign the Java code signing certificate" -Silent $Quiet
 SignCertificate -CSRFile "$CSR" -CA_Cert "$CACert" -CA_Key "$CAKey" -SignedCertFile "$SignedCert$PEMext" -CAPrivateKeyPassword "$CAPrivateKeyPW" 
 
-# Delete the self-signed certificate on YubiHSM"
-PrintMessages -Messages  "Delete the self-signed certificate on YubiHSM" -Silent $Quiet
+# Delete the template certificate on YubiHSM"
+PrintMessages -Messages  "Delete the template certificate on YubiHSM" -Silent $Quiet
 DeleteOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID"
 
 # Convert signed certificate to DER format
