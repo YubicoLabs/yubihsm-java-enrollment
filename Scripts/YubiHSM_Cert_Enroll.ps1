@@ -19,6 +19,7 @@ $StorePW = $AuthKeyID.Replace("0x","") + $AuthPW
 $PEMext = '.pem'
 $DERext = '.der'
 $Template_cert = Join-Path -Path $WorkDirectory -ChildPath 'template_cert'
+$SignedCert = Join-Path -Path $WorkDirectory -ChildPath 'Signed_cert'
 $CSR = Join-Path -Path $WorkDirectory -ChildPath 'YHSM2-Sig1.csr'
 $PKCS11ConfFile = Join-Path -Path $WorkDirectory -ChildPath $PKCS11Config
 $CACert = Join-Path -Path $WorkDirectory -ChildPath $CAcertificate
@@ -101,6 +102,8 @@ function SignAttestationCertificate {
 function Cleanup {
     Remove-Item -Path "$Template_cert$PEMext" 2>&1 >> $null
     Remove-Item -Path "$Template_cert$DERext" 2>&1 >> $null
+    Remove-Item -Path "$SignedCert$PEMext" 2>&1 >> $null
+    Remove-Item -Path "$SignedCert$DERext" 2>&1 >> $null
     Remove-Item -Path "$CSR" 2>&1 >> $null
 }
 
