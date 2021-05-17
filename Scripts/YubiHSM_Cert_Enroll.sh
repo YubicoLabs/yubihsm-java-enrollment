@@ -287,13 +287,13 @@ CreateAndExportCSR "$CSR" "$KeyName" "$PKCS11ConfFile" "$StorePW" "$Dname"
 PrintMessages "Sign the Java code signing certificate" $Quiet
 SignCertificate "$CSR" "$CACertificate" "$CAPrivateKey" "$SignedCert$PEMext" "$CAPrivateKeyPW"
 
-# Delete the self-signed certificate on YubiHSM"
-PrintMessages "Delete the template certificate on YubiHSM" $Quiet
-DeleteOpaque "$AuthPW" "$AuthKeyID" "$KeyID"
-
 # Convert signed certificate to DER format
 PrintMessages "Convert signed certificate to DER format" $Quiet
 ConvertToDER "$SignedCert$PEMext" "$SignedCert$DERext"
+
+# Delete the template certificate  on YubiHSM"
+PrintMessages "Delete the template certificate on YubiHSM" $Quiet
+DeleteOpaque "$AuthPW" "$AuthKeyID" "$KeyID"
 
 # Import the Java code signing certificate
 PrintMessages "Import the Java code signing certificate" $Quiet
