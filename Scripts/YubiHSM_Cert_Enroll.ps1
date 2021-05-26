@@ -22,10 +22,20 @@ $PEMext = '.pem'
 $DERext = '.der'
 $Template_cert = Join-Path -Path $WorkDirectory -ChildPath 'template_cert'
 $SignedCert = Join-Path -Path $WorkDirectory -ChildPath 'Signed_cert'
-$CSR = Join-Path -Path $WorkDirectory -ChildPath 'YHSM2-Sig1.csr'
+
 $PKCS11ConfFile = Join-Path -Path $WorkDirectory -ChildPath $PKCS11Config
 $CACert = Join-Path -Path $WorkDirectory -ChildPath $CAcertificate
 $CAKey = Join-Path -Path $WorkDirectory -ChildPath $CAPrivateKey 
+
+$CSRFileName=$('YHSM2-Sig1.' + (Get-Date -format 'yyyyMMdd_HHmmss') + '.csr')
+$CSR = Join-Path -Path $WorkDirectory -ChildPath $CSRFileName
+$i=0
+while (Test-Path $CSR -PathType leaf)
+{
+    $i+=1
+    $CSRFileName=$('YHSM2-Sig1.' + (Get-Date -format 'yyyyMMdd_HHmmss_') + $i + '.csr')
+    $CSR = Join-Path -Path $WorkDirectory -ChildPath $CSRFileName
+}
 
 function PrintMessages {
     param (
@@ -105,7 +115,6 @@ function Cleanup {
     Remove-Item -Path "$Template_cert$DERext" 2>&1 >> $null
     Remove-Item -Path "$SignedCert$PEMext" 2>&1 >> $null
     Remove-Item -Path "$SignedCert$DERext" 2>&1 >> $null
-    Remove-Item -Path "$CSR" 2>&1 >> $null
 }
 
 function GenerateKeyPair {
@@ -183,6 +192,7 @@ PutOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Key_Nam
 # Create and export the CSR
 PrintMessages -Messages  "Create and export a CSR" -Silent $Quiet
 CreateAndExportCSR -KeyAlias "$KeyName" -CSRFile "$CSR" -PKCS11ConfigFile "$PKCS11ConfFile" -StorePassword "$StorePW" -D_name "$Dname"
+PrintMessages -Messages "PrintMessages CSR save to $CSR" -Silent $Quiet
 
 # Sign the Java code signing certificate
 # This step uses OpenSSL CA as an example

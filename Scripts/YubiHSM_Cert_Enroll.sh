@@ -250,15 +250,21 @@ Dname="${Dname:-}"
 LogFile="${LogFile:-./YubiHSM_PKCS11_Setup.log}"
 Quiet="${Quiet:-false}"
 
-
 # Work variables
 temp_dir=$(mktemp -d)
 TemplateCert=$(mktemp $temp_dir/TemplateCert.XXXXXXXXXXXX)
 SignedCert=$(mktemp $temp_dir/SignedCert.XXXXXXXXXXXX)
-CSR=$(mktemp $temp_dir/YHSM2-Sig.XXXXXXXXXXXX.csr)
 PEMext='.pem'
 DERext='.der'
 StorePW=$(echo $AuthKeyID | sed 's/0x//')$AuthPW
+
+CSR=$(pwd)/YHSM2-Sig.$(date "+%Y%m%d_%H%M%S").csr
+i=0
+while [ -f "$CSR" ]
+do
+	i+=1
+	CSR=$(pwd)/YHSM2-Sig.$(date "+%Y%m%d_%H%M%S")_$i.csr
+done
 
 ##### Main program #####
 
@@ -281,6 +287,7 @@ PutOpaque "$AuthPW" "$AuthKeyID" "$KeyID" "$KeyName" "$Domain" "$TemplateCert$DE
 # Create and export the CSR
 PrintMessages "Create and export a CSR" $Quiet
 CreateAndExportCSR "$CSR" "$KeyName" "$PKCS11ConfFile" "$StorePW" "$Dname"
+PrintMessages "CSR save to $CSR" $Quiet
 
 # Sign the Java code signing certificate
 # This step uses OpenSSL CA as an example
