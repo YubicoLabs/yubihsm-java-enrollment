@@ -13,28 +13,24 @@ param (
     [string]$PKCS11Config = 'sun_yubihsm2_pkcs11.conf',
     [string]$Dname = '',
     [string]$LogFile = (Join-Path -Path $WorkDirectory -ChildPath 'YubiHSM_PKCS11_Enroll.log'),
+    [switch]$CreateCSR, 
+	[switch]$ImportCert,
+	[string]$CSRfile = '',
+	[string]$SignedCert = '',
     [switch]$Quiet
 )
 
-
-$StorePW = $($AuthKeyID.Replace("0x","") + $AuthPW )
-$PEMext = '.pem'
-$DERext = '.der'
-$Template_cert = Join-Path -Path $WorkDirectory -ChildPath 'template_cert'
-$SignedCert = Join-Path -Path $WorkDirectory -ChildPath 'Signed_cert'
-
-$PKCS11ConfFile = Join-Path -Path $WorkDirectory -ChildPath $PKCS11Config
-$CACert = Join-Path -Path $WorkDirectory -ChildPath $CAcertificate
-$CAKey = Join-Path -Path $WorkDirectory -ChildPath $CAPrivateKey 
-
-$CSRFileName=$('YHSM2-Sig1.' + (Get-Date -format 'yyyyMMdd_HHmmss') + '.csr')
-$CSR = Join-Path -Path $WorkDirectory -ChildPath $CSRFileName
-$i=0
-while (Test-Path $CSR -PathType leaf)
-{
-    $i+=1
-    $CSRFileName=$('YHSM2-Sig1.' + (Get-Date -format 'yyyyMMdd_HHmmss_') + $i + '.csr')
-    $CSR = Join-Path -Path $WorkDirectory -ChildPath $CSRFileName
+function GenerateCSRName {
+    $CSRFileName=$('YHSM2-Sig1.' + (Get-Date -format 'yyyyMMdd_HHmmss') + '.csr')
+    $CSRFullPath = Join-Path -Path $WorkDirectory -ChildPath $CSRFileName
+    $i=0
+    while (Test-Path $CSRFullPath -PathType leaf)
+    {
+        $i+=1
+        $CSRFileName=$('YHSM2-Sig1.' + (Get-Date -format 'yyyyMMdd_HHmmss_') + $i + '.csr')
+        $CSRFullPath = Join-Path -Path $WorkDirectory -ChildPath $CSRFileName
+    }
+    return $CSRFullPath
 }
 
 function PrintMessages {
@@ -83,7 +79,7 @@ function DeleteOpaque {
 }
 
 function PutOpaque {
-        param (
+    param (
         $Password,
         $AuthKey_ID,
         $Key_ID,
@@ -111,10 +107,9 @@ function SignAttestationCertificate {
 }
 
 function Cleanup {
-    Remove-Item -Path "$Template_cert$PEMext" 2>&1 >> $null
-    Remove-Item -Path "$Template_cert$DERext" 2>&1 >> $null
-    Remove-Item -Path "$SignedCert$PEMext" 2>&1 >> $null
-    Remove-Item -Path "$SignedCert$DERext" 2>&1 >> $null
+    Remove-Item -Path "$TemplateCertPem" 2>&1 >> $null
+    Remove-Item -Path "$TemplateCertDer" 2>&1 >> $null
+    Remove-Item -Path "$SignedCertDer" 2>&1 >> $null
 }
 
 function GenerateKeyPair {
@@ -159,49 +154,85 @@ function SignCertificate {
         $SignedCertFile
     )
     if ( '' -eq $CAPrivateKeyPassword ) {
-        openssl x509 -req -in "$CSRFile" -CA "$CA_Cert" -CAkey "$CA_Key" -CAcreateserial -out "$SignedCert$PEMext" -days 500 -sha256 2>&1 >> $Logfile
+        openssl x509 -req -in "$CSRFile" -CA "$CA_Cert" -CAkey "$CA_Key" -CAcreateserial -out "$SignedCertFile" -days 500 -sha256 2>&1 >> $Logfile
     } else {
-        openssl x509 -req -in "$CSRFile" -CA "$CA_Cert" -CAkey "$CA_Key" -CAcreateserial -out "$SignedCert$PEMext" -days 500 -sha256 -passin "pass:$CAPrivateKeyPassword" 2>&1 >> $Logfile
+        openssl x509 -req -in "$CSRFile" -CA "$CA_Cert" -CAkey "$CA_Key" -CAcreateserial -out "$SignedCertFile" -days 500 -sha256 -passin "pass:$CAPrivateKeyPassword" 2>&1 >> $Logfile
     }
     if( $LASTEXITCODE -ne 0 ) {
         PrintErrorAndExit -FunctionFailed "SignCertificate" -ErrorCode $LASTEXITCODE 
     }
 }
 
+$StorePW = $($AuthKeyID.Replace("0x","") + $AuthPW )
+$TemplateCertPem = Join-Path -Path $WorkDirectory -ChildPath 'TemplateCert.pem'
+$TemplateCertDer = Join-Path -Path $WorkDirectory -ChildPath 'TemplateCert.der'
+$SignedCertPem = Join-Path -Path $WorkDirectory -ChildPath 'SignedCert.pem'
+$SignedCertDer = Join-Path -Path $WorkDirectory -ChildPath 'SignedCert.der'
+$PKCS11ConfFile = Join-Path -Path $WorkDirectory -ChildPath $PKCS11Config
+$CACert = Join-Path -Path $WorkDirectory -ChildPath $CAcertificate
+$CAKey = Join-Path -Path $WorkDirectory -ChildPath $CAPrivateKey 
+
+if ( '' -eq $CSRfile ) {
+    $CSR = GenerateCSRName
+} else {
+    $CSR = $CSRFile
+}
+
+if ( ($ImportCert -eq $true) -and ($CreateCSR -eq $true) ) {
+	Write-Output "Can't use -ImportCert together with -CreateCSR"
+	exit 1
+}
+
+if ( ($ImportCert -eq $true) -and ( '' -eq $SignedCert ) ) {
+    Write-Output "-SignedCert is mandatory when using -ImportCert"
+	exit 1
+}
+
+if ( $ImportCert -eq $true ) {
+	$SignedCertPem=$SignedCert
+	$SignedCertDer=$($SignedCert + ".der")
+}
+
 ##### Main program #####
+if ( $ImportCert -ne $true ) {
+    # Add start date and time to the log file
+    Write-Output "Started $((Get-Date).ToString())" 2>&1 >> $Logfile
 
-# Add start date and time to the log file
-Write-Output "Started $((Get-Date).ToString())" 2>&1 >> $Logfile
+    # Generate the RSA key-pair
+    PrintMessages -Messages "Generate the RSA key-pair" -Silent $Quiet
+    GenerateKeyPair -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Algo "$Algorithm" -Key_name "$KeyName" -Domains "$Domain" -Key_ID "$KeyID"
 
-# Generate the RSA key-pair
-PrintMessages -Messages "Generate the RSA key-pair" -Silent $Quiet
-GenerateKeyPair -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Algo "$Algorithm" -Key_name "$KeyName" -Domains "$Domain" -Key_ID "$KeyID"
+    # Create a template certificate
+    PrintMessages -Messages  "Creating a template certificate" -Silent $Quiet
+    SignAttestationCertificate -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Outfile "$TemplateCertPem"
 
-# Create a template certificate
-PrintMessages -Messages  "Creating a template certificate" -Silent $Quiet
-SignAttestationCertificate -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Outfile "$Template_cert$PEMext"
+    # Convert to DER format
+    PrintMessages -Messages "Convert template certificate to DER format" -Silent $Quiet
+    ConvertToDER -Infile "$TemplateCertPem" -Outfile "$TemplateCertDer"
 
-# Convert to DER format
-PrintMessages -Messages "Convert template certificate to DER format" -Silent $Quiet
-ConvertToDER -Infile "$Template_cert$PEMext" -Outfile "$Template_cert$DERext"
+    # Import template certificate
+    PrintMessages -Messages "Import template certificate" $Quiet
+    PutOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Key_Name "$KeyName" -Domains "$Domain" -Infile "$TemplateCertDer"
 
-# Import template certificate
-PrintMessages -Messages "Import template certificate" $Quiet
-PutOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Key_Name "$KeyName" -Domains "$Domain" -Infile "$Template_cert$DERext"
+    # Create and export the CSR
+    PrintMessages -Messages  "Create and export a CSR" -Silent $Quiet
+    CreateAndExportCSR -KeyAlias "$KeyName" -CSRFile "$CSR" -PKCS11ConfigFile "$PKCS11ConfFile" -StorePassword "$StorePW" -D_name "$Dname"
+    PrintMessages -Messages "CSR saved to $CSR" -Silent $Quiet
+    if ( "$createcsr" -eq $true ) {
+        # Cleanup and exit
+        Cleanup
+        exit 0
+    }
 
-# Create and export the CSR
-PrintMessages -Messages  "Create and export a CSR" -Silent $Quiet
-CreateAndExportCSR -KeyAlias "$KeyName" -CSRFile "$CSR" -PKCS11ConfigFile "$PKCS11ConfFile" -StorePassword "$StorePW" -D_name "$Dname"
-PrintMessages -Messages "PrintMessages CSR save to $CSR" -Silent $Quiet
-
-# Sign the Java code signing certificate
-# This step uses OpenSSL CA as an example
-PrintMessages -Messages  "Sign the Java code signing certificate" -Silent $Quiet
-SignCertificate -CSRFile "$CSR" -CA_Cert "$CACert" -CA_Key "$CAKey" -SignedCertFile "$SignedCert$PEMext" -CAPrivateKeyPassword "$CAPrivateKeyPW"
+    # Sign the Java code signing certificate
+    # This step uses OpenSSL CA as an example
+    PrintMessages -Messages  "Sign the Java code signing certificate" -Silent $Quiet
+    SignCertificate -CSRFile "$CSR" -CA_Cert "$CACert" -CA_Key "$CAKey" -SignedCertFile "$SignedCertPem" -CAPrivateKeyPassword "$CAPrivateKeyPW"
+}
 
 # Convert signed certificate to DER format
 PrintMessages -Messages  "Convert signed certificate to DER format" -Silent $Quiet
-ConvertToDER -Infile "$SignedCert$PEMext" -Outfile "$SignedCert$DERext"
+ConvertToDER -Infile "$SignedCertPem" -Outfile "$SignedCertDer"
 
 # Delete the template certificate on YubiHSM"
 PrintMessages -Messages  "Delete the template certificate on YubiHSM" -Silent $Quiet
@@ -209,8 +240,10 @@ DeleteOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID"
 
 # Import the Java code signing certificate
 PrintMessages -Messages "Import the Java code signing certificate" -Silent $Quiet
-PutOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Key_Name "$KeyName" -Domains "$Domain" -Infile "$SignedCert$DERext"
+PutOpaque -Password "$AuthPW" -AuthKey_ID "$AuthKeyID" -Key_ID "$KeyID" -Key_Name "$KeyName" -Domains "$Domain" -Infile "$SignedCertDer"
 
 # Remove temporary files
 PrintMessages -Messages "Remove temporary files" $Quiet
-Cleanup 
+
+# Cleanup
+Cleanup

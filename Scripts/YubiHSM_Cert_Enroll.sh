@@ -18,10 +18,13 @@ usage () {
 	echo "-o, --dname                 X.500 Distinguished Name to be used as subject fields [Default: ]"
 	echo "-t, --logfile               Log file path [Default: ./YubiHSM_PKCS11_Enroll.log"
 	echo "-q, --quiet                 Suppress output"
+	echo "-C, --createcsr             Generate keys and export CSR and then exit"
+	echo "-I, --importcert             Import signed certificate created with --createcsr"
+	echo "-F, --csrfile               File to save the CSR request to [Default: ./YHSM2-Sig.YYYYmmDD_HHMMSS(_x).csr]"
+	echo "-S, --signedcert            Signed certificate file. Mandatory when using --importcert [Default: ]"
 	echo ""
 	echo "  Example: `basename "$0"` -k 0x0002 -n MyKey -d 1 -a rsa2048 -i 0x0001 -p password -c ./rootCA-Cert.pem -s ./rootCA-Key.pem -f ./sun_yubihsm2_pkcs11.conf"
 }
-
 
 PrintMessages() {
 	local msg="$1"
@@ -158,6 +161,17 @@ Cleanup () {
 	fi
 }
 
+GenerateCSRName () {
+	local CSR=$(pwd)/YHSM2-Sig.$(date "+%Y%m%d_%H%M%S").csr
+	local i=0
+	while [ -f "$CSR" ]
+	do
+		i=$((i+1))
+		CSR=$(pwd)/YHSM2-Sig.$(date "+%Y%m%d_%H%M%S")_$i.csr
+	done
+	echo $CSR
+}
+
 # Load user defined parameters
 while [[ $# > 0 ]]
 do
@@ -226,6 +240,24 @@ do
 		shift
 		;;
 		
+	-C|--createcsr)
+		createcsr="true"
+		;;
+	
+	-I|--importcert)
+		importcert="true"
+		;;
+	
+	-F|--csrfile)
+		CSR="$2"
+		shift
+		;;
+
+	-S|--signedcert)
+		SignedCert="$2"
+		shift
+		;;
+		
     *)
 		usage
 		exit 1
@@ -234,6 +266,17 @@ do
 	esac
 	shift
 done
+
+# Parameter control
+if [[ "$importcert" == true  &&  "$createcsr" == true ]] ; then
+	echo "Can't use --importcert together with --createcsr"
+	exit 1
+fi
+
+if [[ "$importcert" == true  &&  -z "$SignedCert" ]] ; then
+	echo "--signedcert is mandatory when using --importcert"
+	exit 1
+fi
 
 # Set default values if not defined by user parameters
 KeyID="${KeyID:-0x0002}"
@@ -247,56 +290,60 @@ CAPrivateKey="${CAPrivateKey:-./TestCAKey.pem}"
 PKCS11ConfFile="${PKCS11ConfFile:-./sun_yubihsm2_pkcs11.conf}"
 CAPrivateKeyPW="${CAPrivateKeyPW:-}"
 Dname="${Dname:-}"
-LogFile="${LogFile:-./YubiHSM_PKCS11_Setup.log}"
+LogFile="${LogFile:-./YubiHSM_PKCS11_Enroll.log}"
 Quiet="${Quiet:-false}"
+CSR="${CSR:-$(GenerateCSRName)}"
 
 # Work variables
 temp_dir=$(mktemp -d)
-TemplateCert=$(mktemp $temp_dir/TemplateCert.XXXXXXXXXXXX)
-SignedCert=$(mktemp $temp_dir/SignedCert.XXXXXXXXXXXX)
-PEMext='.pem'
-DERext='.der'
+TemplateCertPem=$(mktemp $temp_dir/TemplateCert.XXXXXXXXXXXX.pem)
+TemplateCertDer=${TemplateCertPem:0:-4}.der
+SignedCertPem=$(mktemp $temp_dir/SignedCert.XXXXXXXXXXXX.pem)
+SignedCertDer=${SignedCertPem:0:-4}.der
 StorePW=$(echo $AuthKeyID | sed 's/0x//')$AuthPW
 
-CSR=$(pwd)/YHSM2-Sig.$(date "+%Y%m%d_%H%M%S").csr
-i=0
-while [ -f "$CSR" ]
-do
-	i+=1
-	CSR=$(pwd)/YHSM2-Sig.$(date "+%Y%m%d_%H%M%S")_$i.csr
-done
+# Are we import a signed CSR
+if [ "$importcert" == true ]; then
+	SignedCertPem=$SignedCert
+fi
 
 ##### Main program #####
 
-# Generate the RSA key-pair
-PrintMessages "Generate key-pair" $Quiet
-GenerateKeyPair "$AuthPW" "$AuthKeyID" "$KeyID" "$KeyName" "$Domain" "$Algorithm"
+if [ "$importcert" != true ] ; then
+	# Generate the RSA key-pair
+	PrintMessages "Generate key-pair" $Quiet
+	GenerateKeyPair "$AuthPW" "$AuthKeyID" "$KeyID" "$KeyName" "$Domain" "$Algorithm"
 
-# Create a template certificate
-PrintMessages "Creating a template certificate" $Quiet
-SignAttestationCertificate "$AuthPW" "$AuthKeyID" "$KeyID" "$TemplateCert$PEMext"
+	# Create a template certificate
+	PrintMessages "Creating a template certificate" $Quiet
+	SignAttestationCertificate "$AuthPW" "$AuthKeyID" "$KeyID" "$TemplateCertPem"
 
-# Convert to DER format
-PrintMessages "Convert template certificate to DER format" $Quiet
-ConvertToDER "$TemplateCert$PEMext" "$TemplateCert$DERext"
+	# Convert to DER format
+	PrintMessages "Convert template certificate to DER format" $Quiet
+	ConvertToDER "$TemplateCertPem" "$TemplateCertDer"
 
-# Import template certificate
-PrintMessages "Import template certificate" $Quiet
-PutOpaque "$AuthPW" "$AuthKeyID" "$KeyID" "$KeyName" "$Domain" "$TemplateCert$DERext"
+	# Import template certificate
+	PrintMessages "Import template certificate" $Quiet
+	PutOpaque "$AuthPW" "$AuthKeyID" "$KeyID" "$KeyName" "$Domain" "$TemplateCertDer"
 
-# Create and export the CSR
-PrintMessages "Create and export a CSR" $Quiet
-CreateAndExportCSR "$CSR" "$KeyName" "$PKCS11ConfFile" "$StorePW" "$Dname"
-PrintMessages "CSR save to $CSR" $Quiet
+	# Create and export the CSR
+	PrintMessages "Create and export a CSR" $Quiet
+	CreateAndExportCSR "$CSR" "$KeyName" "$PKCS11ConfFile" "$StorePW" "$Dname"
+	PrintMessages "CSR saved to $CSR" $Quiet
+	if [ "$createcsr" == true ] ; then
+		Cleanup "$temp_dir"
+		exit 0
+	fi
 
-# Sign the Java code signing certificate
-# This step uses OpenSSL CA as an example
-PrintMessages "Sign the Java code signing certificate" $Quiet
-SignCertificate "$CSR" "$CACertificate" "$CAPrivateKey" "$SignedCert$PEMext" "$CAPrivateKeyPW"
+	# Sign the Java code signing certificate
+	# This step uses OpenSSL CA as an example
+	PrintMessages "Sign the Java code signing certificate" $Quiet
+	SignCertificate "$CSR" "$CACertificate" "$CAPrivateKey" "$SignedCertPem" "$CAPrivateKeyPW"
+fi
 
 # Convert signed certificate to DER format
 PrintMessages "Convert signed certificate to DER format" $Quiet
-ConvertToDER "$SignedCert$PEMext" "$SignedCert$DERext"
+ConvertToDER "$SignedCertPem" "$SignedCertDer"
 
 # Delete the template certificate  on YubiHSM"
 PrintMessages "Delete the template certificate on YubiHSM" $Quiet
@@ -304,7 +351,7 @@ DeleteOpaque "$AuthPW" "$AuthKeyID" "$KeyID"
 
 # Import the Java code signing certificate
 PrintMessages "Import the Java code signing certificate" $Quiet
-PutOpaque "$AuthPW" "$AuthKeyID" "$KeyID" "$KeyName" "$Domain" "$SignedCert$DERext"
+PutOpaque "$AuthPW" "$AuthKeyID" "$KeyID" "$KeyName" "$Domain" "$SignedCertDer"
 
 # Remove temporary files
 PrintMessages "Remove temporary files" $Quiet

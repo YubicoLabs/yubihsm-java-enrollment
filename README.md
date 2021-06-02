@@ -144,6 +144,11 @@ The PowerShell script has the following parameters:
 * ``PKCS11Config`` - Java JCE PKCS #11 configuration file [Default: ./sun_yubihsm2_pkcs11.conf]
 * ``LogFile`` - Log file path [Default: ``WorkDirectory``/YubiHSM_PKCS11_Enroll.log]
 * ``Dname`` - X.500 Distinguished Name to be used as subject fields [Default: ]
+* ``CreateCSR`` - Generate keys and export CSR and then exit
+* ``ImportCert`` - Import signed certificate created with ``CreateCSR``
+* ``CSRfile`` - File to save the CSR request to [Default: ./YHSM2-Sig.(date and time).csr]
+* ``SignedCert`` - Signed certificate file. [Default: ]
+* ``Quiet`` - Suppress output
 
 All parameters have default settings in the PowerShell script. The parameters can either be modified in the PowerShell script, or be used as input variables when executing the script.
 
@@ -179,6 +184,10 @@ The Bash script has the following parameters:
 * ``-o, --dname`` - X.500 Distinguished Name to be used as subject fields [Default: ]
 * ``-t, --logfile`` - Log file path [Default: ./YubiHSM_PKCS11_Enroll.log
 * ``-q, --quiet`` - Suppress output
+* ``-C, --createcsr`` - Generate keys and export CSR and then exit
+* ``-I, --importcert`` - Import signed certificate created with --createcsr"
+* ``-F, --csrfile`` - File to save the CSR request to [Default: ./YHSM2-Sig.(date and time).csr]"
+* ``-S, --signedcert`` - Signed certificate file. Mandatory when using --importcert [Default: ]"
 
 All parameters have default settings in the Bash script. The parameters can either be modified in the Bash  script, or be used as input variables when executing the script.
 
