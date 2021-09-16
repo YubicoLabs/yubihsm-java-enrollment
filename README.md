@@ -212,7 +212,7 @@ Found 3 object(s)
 id: 0x0001, type: authentication-key, sequence: 0
 id: 0x0002, type: opaque, sequence: 1
 id: 0x0002, type: asymmetric-key, sequence: 0
-yubihsm> get objectinfo 0 0xd353 asymmetric-key
+yubihsm> get objectinfo 0 0x0002 asymmetric-key
 id: 0x0002, type: asymmetric-key, algorithm: rsa2048, label: "........................................", length: 896, domains: 1, sequence: 0, origin: generated, capabilities: exportable-under-wrap:sign-attestation-certificate:sign-pkcs:sign-pss
 ```
 
