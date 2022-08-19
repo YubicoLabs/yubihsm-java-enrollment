@@ -12,14 +12,14 @@ usage () {
 	echo "-i, --authkeyid             Key ID of the Authentication Key used [Default: 0x0001]"
 	echo "-p, --authpassword          Password for the Authentication Key [Default: ]"
 	echo "-c, --cacertificate         CA certificate to use [Default: ./TestCACert.pem]"
-	echo "-s, --caprivatekey          Privet key for the CA certificate [Default: ./TestCAKey.pem]"
-	echo "-r, --caprivatekeypw        Password for the CA certificate privet file [Default: ]"
+	echo "-s, --caprivatekey          Private key for the CA certificate [Default: ./TestCAKey.pem]"
+	echo "-r, --caprivatekeypw        Password for the CA certificate private file [Default: ]"
 	echo "-f, --pkcs11configfile      PKCS11 configuration file [Default: ./sun_yubihsm2_pkcs11.conf]"
 	echo "-o, --dname                 X.500 Distinguished Name to be used as subject fields [Default: ]"
 	echo "-t, --logfile               Log file path [Default: ./YubiHSM_PKCS11_Enroll.log"
 	echo "-q, --quiet                 Suppress output"
 	echo "-C, --createcsr             Generate keys and export CSR and then exit"
-	echo "-I, --importcert             Import signed certificate created with --createcsr"
+	echo "-I, --importcert            Import signed certificate created with --createcsr"
 	echo "-F, --csrfile               File to save the CSR request to [Default: ./YHSM2-Sig.YYYYmmDD_HHMMSS(_x).csr]"
 	echo "-S, --signedcert            Signed certificate file. Mandatory when using --importcert [Default: ]"
 	echo ""
@@ -297,9 +297,9 @@ CSR="${CSR:-$(GenerateCSRName)}"
 # Work variables
 temp_dir=$(mktemp -d)
 TemplateCertPem=$(mktemp $temp_dir/TemplateCert.XXXXXXXXXXXX.pem)
-TemplateCertDer=${TemplateCertPem:0:-4}.der
+TemplateCertDer=$(dirname ${TemplateCertPem})/$(basename ${TemplateCertPem} .pem).der
 SignedCertPem=$(mktemp $temp_dir/SignedCert.XXXXXXXXXXXX.pem)
-SignedCertDer=${SignedCertPem:0:-4}.der
+SignedCertDer=$(dirname ${SignedCertPem})/$(basename ${SignedCertPem} .pem).der
 StorePW=$(echo $AuthKeyID | sed 's/0x//')$AuthPW
 
 # Are we import a signed CSR
