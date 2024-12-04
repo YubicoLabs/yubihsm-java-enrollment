@@ -194,7 +194,7 @@ All parameters have default settings in the Bash script. The parameters can eith
 Example of how to execute the Bash script:
 ------------------------------------------
 
-``$ ./YubiHSM_PKCS11_Setup.sh -k 0x0002 -n MyKey -d 1 -a rsa2048 -i 0x0001 -p password -c ./TestCACert.pem -s ./TestCAKey.pem -f ./sun_yubihsm2_pkcs11.conf``
+``$ ./YubiHSM_Cert_Enroll.sh -k 0x0002 -n MyKey -d 1 -a rsa2048 -i 0x0001 -p password -c ./TestCACert.pem -s ./TestCAKey.pem -f ./sun_yubihsm2_pkcs11.conf``
 
 List the objects on YubiHSM 2
 =============================
